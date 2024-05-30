@@ -2,7 +2,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const barcodeRoutes = require('./routes/barcode');
-const healthRoutes = require('./routes/health'); // Add this line
+const healthRoutes = require('./routes/health');
+const dataRoutes = require('./routes/data'); // Add this line
 const db = require('./db_conn');
 
 const app = express();
@@ -12,6 +13,7 @@ app.use(cors()); // Handle CORS
 app.use(bodyParser.json());
 app.use('/api/barcode', barcodeRoutes);
 app.use('/api', healthRoutes); // Use the health routes
+app.use('/api', dataRoutes); // Use the data routes
 
 db.initialize()
   .then(() => {
@@ -35,8 +37,3 @@ process.on('SIGINT', () => {
       process.exit(1);
     });
 });
-
-// Remove the duplicate app.listen call
-// app.listen(PORT, () => {
-//     console.log(`Server is running on port ${PORT}`);
-// });
