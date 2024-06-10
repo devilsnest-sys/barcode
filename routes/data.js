@@ -5,12 +5,12 @@ const db = require('../db_conn');
 router.get('/data', async (req, res) => {
   const { unit, doc, prodCode } = req.query;
 
-  if (!unit || !doc || !prodCode) {
-    return res.status(400).send('Missing required query parameters: unit, doc, prodCode');
+  if (!unit) {
+    return res.status(400).send('Missing required query parameter: unit');
   }
 
   try {
-    const data = await db.executeQuery(unit, doc, prodCode);
+    const data = await db.executeQuery({ unit, doc, prodCode });
     res.status(200).json(data);
   } catch (err) {
     console.error('Error fetching data', err);

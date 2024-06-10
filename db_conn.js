@@ -25,42 +25,53 @@ async function close() {
   }
 }
 
-async function executeQuery(unit, doc, prodCode) {
+async function executeQuery(params) {
   let conn;
+  const { unit, doc, prodCode } = params;
 
-  const query = `
+  let baseQuery = `
     SELECT PRODN_SLIP_NO, PART_CODE, '*'||BARCODE_NO||'*' LOT_NO, STORE_CODE, DESCRIPTION, BARCODE_NO, PROD_SUBGROUP
     FROM PROC_LOT_STOCK A, ENG.PRODUCTS
     WHERE A.UNIT_CD = :P_UNIT
     AND PART_CODE = PRODUCT_CODE
-    AND PRODN_SLIP_NO = :P_DOC
-    AND PART_CODE = :P_PROD_CODE
+  `;
+
+  let unionQuery = `
     UNION ALL
     SELECT PRODN_SLIP_NO, PART_CODE, '*'||BARCODE_NO||'*' LOT_NO, STORE_CODE, DESCRIPTION, BARCODE_NO, PROD_SUBGROUP
     FROM PROC_LOT_STOCK_FG A, ENG.PRODUCTS
     WHERE A.UNIT_CD = :P_UNIT
     AND PART_CODE = PRODUCT_CODE
-    AND PRODN_SLIP_NO = :P_DOC
-    AND PART_CODE = :P_PROD_CODE
+  `;
+
+  let finalUnionQuery = `
     UNION ALL
     SELECT PRODN_SLIP_NO, PART_CODE, '*'||BARCODE_NO||'*' LOT_NO, STORE_CODE, DESCRIPTION, BARCODE_NO, PROD_SUBGROUP
     FROM MTL.VEN_PORTAL_LOT_STOCK_FG A, ENG.PRODUCTS
     WHERE A.UNIT_CD = :P_UNIT
     AND PART_CODE = PRODUCT_CODE
-    AND PRODN_SLIP_NO = :P_DOC
-    AND PART_CODE = :P_PROD_CODE
-    UNION ALL
-    SELECT ASS_PRODN_SLIP, A.PRODUCT_CODE, '*'||BARCODE_NO||'*' LOT_NO, STORE_CODE, DESCRIPTION, BARCODE_NO, PROD_SUBGROUP
-    FROM REVPRD.ASSY_PRODN_SLIP A, ENG.PRODUCTS B
-    WHERE A.UNIT_CD = :P_UNIT
-    AND A.PRODUCT_CODE = B.PRODUCT_CODE
-    AND A.PRODUCT_CODE = :P_PROD_CODE
   `;
+
+  let conditions = [];
+  if (doc) {
+    conditions.push('PRODN_SLIP_NO = :P_DOC');
+  }
+  if (prodCode) {
+    conditions.push('PART_CODE = :P_PROD_CODE');
+  }
+
+  if (conditions.length > 0) {
+    baseQuery += ` AND ${conditions.join(' AND ')}`;
+    unionQuery += ` AND ${conditions.join(' AND ')}`;
+    finalUnionQuery += ` AND ${conditions.join(' AND ')}`;
+  }
+
+  const finalQuery = `${baseQuery} ${unionQuery} ${finalUnionQuery}`;
 
   const binds = {
     P_UNIT: unit,
-    P_DOC: doc,
-    P_PROD_CODE: prodCode
+    ...(doc && { P_DOC: doc }),
+    ...(prodCode && { P_PROD_CODE: prodCode })
   };
 
   const options = {
@@ -70,7 +81,7 @@ async function executeQuery(unit, doc, prodCode) {
 
   try {
     conn = await oracledb.getConnection();
-    const result = await conn.execute(query, binds, options);
+    const result = await conn.execute(finalQuery, binds, options);
     return result.rows;
   } catch (err) {
     console.error('Error executing query', err);
