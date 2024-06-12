@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const barcodeRoutes = require('./routes/barcode');
 const healthRoutes = require('./routes/health');
-const dataRoutes = require('./routes/data'); // Add this line
+const dataRoutes = require('./routes/data');
 const db = require('./db_conn');
 
 const app = express();

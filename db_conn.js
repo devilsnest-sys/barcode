@@ -27,51 +27,25 @@ async function close() {
 
 async function executeQuery(params) {
   let conn;
-  const { unit, doc, prodCode } = params;
+  const { daNo } = params;
 
-  let baseQuery = `
-    SELECT PRODN_SLIP_NO, PART_CODE, '*'||BARCODE_NO||'*' LOT_NO, STORE_CODE, DESCRIPTION, BARCODE_NO, PROD_SUBGROUP
-    FROM PROC_LOT_STOCK A, ENG.PRODUCTS
-    WHERE A.UNIT_CD = :P_UNIT
-    AND PART_CODE = PRODUCT_CODE
+  let query = `
+    SELECT DA_NO, QTY, B.PRODUCT_CODE, A.DESCRIPTION, BARCODE_NO, A.STORE_CODE
+    FROM ENG.PRODUCTS A, FINANCE.DESPATCH_ADVICE_DETAIL B, SUPER_MKM.PURCHASE_ORDER_HEADER C
+    WHERE A.PRODUCT_CODE = B.PRODUCT_CODE
+    AND MARKET_TYPE = 'EXP'
+    AND PO_ACK_NUMBER = ACK_NUMBER
+    AND B.STATUS = 'A' AND BARCODE_NO IS NOT NULL
   `;
 
-  let unionQuery = `
-    UNION ALL
-    SELECT PRODN_SLIP_NO, PART_CODE, '*'||BARCODE_NO||'*' LOT_NO, STORE_CODE, DESCRIPTION, BARCODE_NO, PROD_SUBGROUP
-    FROM PROC_LOT_STOCK_FG A, ENG.PRODUCTS
-    WHERE A.UNIT_CD = :P_UNIT
-    AND PART_CODE = PRODUCT_CODE
-  `;
-
-  let finalUnionQuery = `
-    UNION ALL
-    SELECT PRODN_SLIP_NO, PART_CODE, '*'||BARCODE_NO||'*' LOT_NO, STORE_CODE, DESCRIPTION, BARCODE_NO, PROD_SUBGROUP
-    FROM MTL.VEN_PORTAL_LOT_STOCK_FG A, ENG.PRODUCTS
-    WHERE A.UNIT_CD = :P_UNIT
-    AND PART_CODE = PRODUCT_CODE
-  `;
-
-  let conditions = [];
-  if (doc) {
-    conditions.push('PRODN_SLIP_NO = :P_DOC');
-  }
-  if (prodCode) {
-    conditions.push('PART_CODE = :P_PROD_CODE');
+  if (daNo) {
+    query += ' AND DA_NO = :P_DA_NO';
   }
 
-  if (conditions.length > 0) {
-    baseQuery += ` AND ${conditions.join(' AND ')}`;
-    unionQuery += ` AND ${conditions.join(' AND ')}`;
-    finalUnionQuery += ` AND ${conditions.join(' AND ')}`;
-  }
-
-  const finalQuery = `${baseQuery} ${unionQuery} ${finalUnionQuery}`;
+  query += ' ORDER BY DA_NO DESC';
 
   const binds = {
-    P_UNIT: unit,
-    ...(doc && { P_DOC: doc }),
-    ...(prodCode && { P_PROD_CODE: prodCode })
+    ...(daNo && { P_DA_NO: daNo })
   };
 
   const options = {
@@ -81,7 +55,7 @@ async function executeQuery(params) {
 
   try {
     conn = await oracledb.getConnection();
-    const result = await conn.execute(finalQuery, binds, options);
+    const result = await conn.execute(query, binds, options);
     return result.rows;
   } catch (err) {
     console.error('Error executing query', err);
