@@ -1,9 +1,9 @@
 const oracledb = require('oracledb');
 
 const dbConfig = {
-    user: 'revprd',
-    password: 'glAssfish_ora958',
-    connectString: '192.168.0.242:1521/termssgm'
+    user: '',
+    password: '',
+    connectString: ''
 };
 
 async function initialize() {
